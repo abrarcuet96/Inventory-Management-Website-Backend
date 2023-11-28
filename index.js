@@ -28,6 +28,7 @@ async function run() {
     // ---------------------------------------------------------------------------------------------------
     const usersCollection = client.db('inventoryDB').collection('users');
     const shopCollection = client.db('inventoryDB').collection('shops');
+    const productCollection = client.db('inventoryDB').collection('products');
     // user info api
     app.get('/users', async (req, res) => {
       const result = await usersCollection.find().toArray();
@@ -50,8 +51,7 @@ async function run() {
     });
     app.post('/shops/:email', async (req, res) => {
       const shop = req.body;
-      const email= req.params.email;
-      console.log(shop);
+      const email = req.params.email;
       const query = { ownerEmail: shop.ownerEmail };
       const shopExist = await shopCollection.findOne(query);
       if (shopExist || shop.ownerEmail !== email) {
@@ -63,7 +63,7 @@ async function run() {
     // shop user become a manager
     app.patch('/users', async (req, res) => {
       const newInfo = req.body;
-      const id= req.params.id;
+      const id = req.params.id;
       console.log(id);
       const query = { email: newInfo.email };
       const updatedInfo = {
@@ -76,9 +76,42 @@ async function run() {
           shopLogo: newInfo.shopLogo,
         }
       };
-      const result= await usersCollection.updateOne(query,updatedInfo);
+      const result = await usersCollection.updateOne(query, updatedInfo);
       res.send(result);
 
+    });
+    // find user
+    app.get('/users/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email }
+      console.log(email);
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+    // products api
+    // find products according to email
+    app.get('/products', async (req, res) => {
+      const result = await productCollection.find().toArray();
+      res.send(result);
+    });
+    app.get('/products/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email }
+      console.log(email);
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
+    // save product to database according to email id
+    app.post('/products', async (req, res) => {
+      const product = req.body;
+      const query= {userEmail: product.userEmail}
+      const productCount = await productCollection.countDocuments(query);
+      console.log(productCount);
+      if (productCount >= 3) {
+        return res.send({ message: 'you cannot add more product', insertedId: null });
+      }
+      const result = await productCollection.insertOne(product);
+      res.send(result);
     });
 
 
