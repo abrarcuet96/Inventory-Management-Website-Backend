@@ -30,6 +30,7 @@ async function run() {
     const shopCollection = client.db('inventoryDB').collection('shops');
     const productCollection = client.db('inventoryDB').collection('products');
     const cartCollection = client.db('inventoryDB').collection('carts');
+    const salesCollection = client.db('inventoryDB').collection('sales');
     // user info api
     app.get('/users', async (req, res) => {
       const result = await usersCollection.find().toArray();
@@ -65,7 +66,6 @@ async function run() {
     app.patch('/users', async (req, res) => {
       const newInfo = req.body;
       const id = req.params.id;
-      console.log(id);
       const query = { email: newInfo.email };
       const updatedInfo = {
         $set: {
@@ -85,7 +85,6 @@ async function run() {
     app.get('/users/:email', async (req, res) => {
       const email = req.params.email;
       const query = { email: email }
-      console.log(email);
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
@@ -98,7 +97,6 @@ async function run() {
     // find products according to id
     app.get('/products/:email/:id', async (req, res) => {
       const id = req.params.id;
-      console.log(id);
       const query = { _id: new ObjectId(id) };
       const result = await productCollection.findOne(query);
       res.send(result);
@@ -107,7 +105,6 @@ async function run() {
     app.get('/products/:email', async (req, res) => {
       const email = req.params.email;
       const query = { userEmail: email }
-      console.log(email);
       const result = await productCollection.find(query).toArray();
       res.send(result);
     });
@@ -116,7 +113,6 @@ async function run() {
       const product = req.body;
       const query = { userEmail: product.userEmail }
       const productCount = await productCollection.countDocuments(query);
-      console.log(productCount);
       if (productCount >= 3) {
         return res.send({ message: 'you cannot add more product', insertedId: null });
       }
@@ -126,7 +122,9 @@ async function run() {
     // product update operation
     app.patch('/products/:id', async (req, res) => {
       const productItemDet = req.body;
+      console.log(productItemDet);
       const id = req.params.id;
+      console.log(id);
       const filter = { _id: new ObjectId(id) };
       const updateProduct = {
         $set: {
@@ -157,12 +155,12 @@ async function run() {
     })
 
     // cart product 
-    app.get('/cart', async(req,res)=>{
+    app.get('/cart', async (req, res) => {
       const result = await cartCollection.find().toArray();
       res.send(result);
     })
     app.post('/cart', async (req, res) => {
-      const cartProduct= req.body;
+      const cartProduct = req.body;
       const result = await cartCollection.insertOne(cartProduct);
       res.send(result);
     })
@@ -170,12 +168,26 @@ async function run() {
     app.get('/cart/:email', async (req, res) => {
       const email = req.params.email;
       const query = { userEmail: email }
-      console.log(email);
       const result = await cartCollection.find(query).toArray();
       res.send(result);
     });
 
-
+    // sales collection api
+    app.get('/sales', async (req, res) => {
+      const result = await salesCollection.find().toArray();
+      res.send(result);
+    })
+    app.post('/sales', async (req, res) => {
+      const soldProduct = req.body;
+      const result = await salesCollection.insertOne(soldProduct);
+      res.send(result);
+    })
+    app.delete('/cart/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cartCollection.deleteOne(query);
+      res.send(result);
+    })
     // ---------------------------------------------------------------------------------------------------
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
