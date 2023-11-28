@@ -29,6 +29,7 @@ async function run() {
     const usersCollection = client.db('inventoryDB').collection('users');
     const shopCollection = client.db('inventoryDB').collection('shops');
     const productCollection = client.db('inventoryDB').collection('products');
+    const cartCollection = client.db('inventoryDB').collection('carts');
     // user info api
     app.get('/users', async (req, res) => {
       const result = await usersCollection.find().toArray();
@@ -155,9 +156,24 @@ async function run() {
       res.send(result);
     })
 
+    // cart product 
+    app.get('/cart', async(req,res)=>{
+      const result = await cartCollection.find().toArray();
+      res.send(result);
+    })
+    app.post('/cart', async (req, res) => {
+      const cartProduct= req.body;
+      const result = await cartCollection.insertOne(cartProduct);
+      res.send(result);
+    })
 
-
-
+    app.get('/cart/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email }
+      console.log(email);
+      const result = await cartCollection.find(query).toArray();
+      res.send(result);
+    });
 
 
     // ---------------------------------------------------------------------------------------------------
