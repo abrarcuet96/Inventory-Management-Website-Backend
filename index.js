@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@ac-g4cltbn-shard-00-00.xdos8fw.mongodb.net:27017,ac-g4cltbn-shard-00-01.xdos8fw.mongodb.net:27017,ac-g4cltbn-shard-00-02.xdos8fw.mongodb.net:27017/?ssl=true&replicaSet=atlas-136bys-shard-0&authSource=admin&retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -89,11 +89,20 @@ async function run() {
       res.send(result);
     });
     // products api
-    // find products according to email
+
     app.get('/products', async (req, res) => {
       const result = await productCollection.find().toArray();
       res.send(result);
     });
+    // find products according to id
+    app.get('/products/:email/:id', async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const query = { _id: new ObjectId(id) };
+      const result = await productCollection.findOne(query);
+      res.send(result);
+    });
+    // find products according to email
     app.get('/products/:email', async (req, res) => {
       const email = req.params.email;
       const query = { userEmail: email }
@@ -104,7 +113,7 @@ async function run() {
     // save product to database according to email id
     app.post('/products', async (req, res) => {
       const product = req.body;
-      const query= {userEmail: product.userEmail}
+      const query = { userEmail: product.userEmail }
       const productCount = await productCollection.countDocuments(query);
       console.log(productCount);
       if (productCount >= 3) {
@@ -113,6 +122,38 @@ async function run() {
       const result = await productCollection.insertOne(product);
       res.send(result);
     });
+    // product update operation
+    app.patch('/products/:id', async (req, res) => {
+      const productItemDet = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateProduct = {
+        $set: {
+          productName: productItemDet.productName,
+          productImage: productItemDet.productImage,
+          productDescription: productItemDet.productDescription,
+          productLocation: productItemDet.productLocation,
+          productionCost: productItemDet.productionCost,
+          productionQuantity: productItemDet.productionQuantity,
+          profitMargin: productItemDet.profitMargin,
+          productDiscount: productItemDet.productDiscount,
+          productAddedDate: productItemDet.productAddedDate,
+          shopName: productItemDet.shopName,
+          userEmail: productItemDet.userEmail,
+          sellingPrice: productItemDet.sellingPrice,
+          saleCount: productItemDet.saleCount,
+        }
+      }
+      const result = await productCollection.updateOne(filter, updateProduct);
+      res.send(result);
+    })
+    // product delete operation
+    app.delete('/products/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await productCollection.deleteOne(query);
+      res.send(result);
+    })
 
 
 
