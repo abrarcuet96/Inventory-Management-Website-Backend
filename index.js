@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
-
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY);
 // middleware:
 app.use(cors());
 app.use(express.json());
@@ -31,11 +31,19 @@ async function run() {
     const productCollection = client.db('inventoryDB').collection('products');
     const cartCollection = client.db('inventoryDB').collection('carts');
     const salesCollection = client.db('inventoryDB').collection('sales');
+    const purchaseCollection = client.db('inventoryDB').collection('purchases');
     // user info api
     app.get('/users', async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
+    app.get('/users/role/:role', async (req, res) => {
+      const role = req.params.role;
+      const query = { role: role };
+      console.log(role);
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    })
     app.post('/users', async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -61,25 +69,64 @@ async function run() {
       }
       const result = await shopCollection.insertOne(shop);
       res.send(result);
+    });
+    app.get('/shops/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { ownerEmail: email };
+      const result = await shopCollection.find(query).toArray();
+      res.send(result);
     })
+    app.patch('/shops', async (req, res) => {
+      const shopInfo = req.body;
+      const query = { ownerEmail: shopInfo.ownerEmail };
+      const updatedInfo = {
+        $set: {
+          shopName: shopInfo.shopName,
+          shopLogo: shopInfo.shopLogo,
+          shopInfo: shopInfo.shopInfo,
+          shopLocation: shopInfo.shopLocation,
+          ownerEmail: shopInfo.ownerEmail,
+          ownerName: shopInfo.ownerName,
+          productLimit: shopInfo.productLimit,
+        }
+      };
+      const result = await shopCollection.updateOne(query, updatedInfo);
+      res.send(result);
+
+    });
     // shop user become a manager
     app.patch('/users', async (req, res) => {
       const newInfo = req.body;
-      const id = req.params.id;
       const query = { email: newInfo.email };
-      const updatedInfo = {
-        $set: {
-          name: newInfo.name,
-          email: newInfo.email,
-          imageURL: newInfo.imageURL,
-          role: newInfo.role,
-          shopName: newInfo.shopName,
-          shopLogo: newInfo.shopLogo,
-        }
-      };
-      const result = await usersCollection.updateOne(query, updatedInfo);
-      res.send(result);
-
+      if (newInfo.role === 'manager') {
+        const updatedInfo = {
+          $set: {
+            name: newInfo.name,
+            email: newInfo.email,
+            imageURL: newInfo.imageURL,
+            role: newInfo.role,
+            shopName: newInfo.shopName,
+            shopLogo: newInfo.shopLogo,
+            income: ''
+          }
+        };
+        const result = await usersCollection.updateOne(query, updatedInfo);
+        res.send(result);
+      } else {
+        const updatedInfo = {
+          $set: {
+            name: newInfo.name,
+            email: newInfo.email,
+            imageURL: newInfo.imageURL,
+            role: newInfo.role,
+            shopName: newInfo.shopName,
+            shopLogo: newInfo.shopLogo,
+            income: newInfo.income
+          }
+        };
+        const result = await usersCollection.updateOne(query, updatedInfo);
+        res.send(result);
+      }
     });
     // find user
     app.get('/users/:email', async (req, res) => {
@@ -113,7 +160,7 @@ async function run() {
       const product = req.body;
       const query = { userEmail: product.userEmail }
       const productCount = await productCollection.countDocuments(query);
-      if (productCount >= 3) {
+      if (productCount >= product.productLimit) {
         return res.send({ message: 'you cannot add more product', insertedId: null });
       }
       const result = await productCollection.insertOne(product);
@@ -141,6 +188,7 @@ async function run() {
           userEmail: productItemDet.userEmail,
           sellingPrice: productItemDet.sellingPrice,
           saleCount: productItemDet.saleCount,
+          productLimit: productItemDet.productLimit
         }
       }
       const result = await productCollection.updateOne(filter, updateProduct);
@@ -177,6 +225,12 @@ async function run() {
       const result = await salesCollection.find().toArray();
       res.send(result);
     })
+    app.get('/sales/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email };
+      const result = await salesCollection.find(query).toArray();
+      res.send(result);
+    })
     app.post('/sales', async (req, res) => {
       const soldProduct = req.body;
       const result = await salesCollection.insertOne(soldProduct);
@@ -188,6 +242,33 @@ async function run() {
       const result = await cartCollection.deleteOne(query);
       res.send(result);
     })
+    app.post('/create-payment-intent', async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: ['card']
+      })
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      })
+    })
+    app.get('/purchase', async (req, res) => {
+      const result = await purchaseCollection.find().toArray();
+      res.send(result);
+    })
+    app.post('/purchase', async (req, res) => {
+      const purchase = req.body;
+      const result = await purchaseCollection.insertOne(purchase);
+      res.send(result);
+    });
+    app.get('/purchase/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email }
+      const result = await purchaseCollection.find(query).toArray();
+      res.send(result);
+    });
     // ---------------------------------------------------------------------------------------------------
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
